@@ -219,8 +219,7 @@ def display_data_preview():
                         img_paths = value.split(",")
                         with st.container():
                             for img_path in img_paths:
-                                st.image(Image.open(img_path), 
-                                        use_container_width=True)
+                                st.image(Image.open(img_path), use_container_width=True)
                     except Exception as e:
                         print(e)
                         st.write(value)
