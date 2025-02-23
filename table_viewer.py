@@ -75,8 +75,14 @@ def sql_configuration():
         if st.button("Add Column"):
             add_computed_column(new_col_sql)
 
+def copy_original_to_current():
+    """Copy original_df to current_df"""
+    st.session_state.current_df = st.session_state.df.copy()
+    st.session_state.current_page = 1
+
 def apply_sql_query(query):
     try:
+        copy_original_to_current()
         conn = duckdb.connect()
         conn.register('current_df', st.session_state.current_df)
         result = conn.execute(query).fetchdf()
