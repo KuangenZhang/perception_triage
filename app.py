@@ -1,0 +1,198 @@
+import streamlit as st
+import pandas as pd
+import duckdb
+from PIL import Image
+import math
+
+def init_session_state():
+    session_defaults = {
+        'df': None,
+        'current_df': None,
+        'display_types': {},
+        'labels': {},
+        'current_page': 1,
+        'rows_per_page': 10,
+        'page': 'Data Upload & Configuration'
+    }
+    for key, value in session_defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+def sidebar_controls():
+    with st.sidebar:
+        st.header("Navigation")
+        st.session_state.page = st.selectbox(
+            "Select Page",
+            ['Data Upload & Configuration', 'Data Preview'],
+            index=0 if st.session_state.page == 'Data Upload & Configuration' else 1
+        )
+        
+        if st.session_state.page == 'Data Preview' and st.session_state.current_df is not None:
+            st.header("Pagination Settings")
+            new_rows = st.number_input(
+                "Rows per page",
+                min_value=1,
+                max_value=100,
+                value=st.session_state.rows_per_page
+            )
+            if new_rows != st.session_state.rows_per_page:
+                st.session_state.rows_per_page = new_rows
+                st.session_state.current_page = 1  # Reset to first page
+
+def handle_file_upload():
+    st.header("1. Data Upload")
+    uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
+    if uploaded_file:
+        st.session_state.df = pd.read_csv(uploaded_file)
+        st.session_state.current_df = st.session_state.df.copy()
+        st.session_state.display_types = {}
+        st.session_state.labels = {}
+        st.session_state.current_page = 1  # Reset pagination on new upload
+
+def sql_configuration():
+    st.header("2. SQL Configuration")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Column Selection")
+        sql_query = st.text_area(
+            "Input SQL Query",
+            value="SELECT * FROM current_df",
+            height=100
+        )
+        if st.button("Apply SQL"):
+            apply_sql_query(sql_query)
+    
+    with col2:
+        st.subheader("Add Computed Column")
+        new_col_sql = st.text_input(
+            "SQL for new column",
+            placeholder="SELECT *, salary*2 AS bonus FROM current_df"
+        )
+        if st.button("Add Column"):
+            add_computed_column(new_col_sql)
+
+def apply_sql_query(query):
+    try:
+        conn = duckdb.connect()
+        conn.register('current_df', st.session_state.current_df)
+        result = conn.execute(query).fetchdf()
+        st.session_state.current_df = result
+        st.session_state.current_page = 1  # Reset pagination
+        st.experimental_rerun()
+    except Exception as e:
+        st.error(f"SQL Error: {str(e)}")
+
+def add_computed_column(query):
+    try:
+        conn = duckdb.connect()
+        conn.register('current_df', st.session_state.current_df)
+        new_df = conn.execute(query).fetchdf()
+        st.session_state.current_df = new_df
+        st.session_state.current_page = 1  # Reset pagination
+        st.experimental_rerun()
+    except Exception as e:
+        st.error(f"Column Error: {str(e)}")
+
+def display_settings():
+    st.header("3. Display Settings")
+    
+    st.subheader("Column Display Types")
+    cols = st.columns(3)
+    for idx, col_name in enumerate(st.session_state.current_df.columns):
+        with cols[idx % 3]:
+            current_type = st.session_state.display_types.get(col_name, "Text")
+            st.session_state.display_types[col_name] = st.selectbox(
+                f"Type for {col_name}",
+                ["Text", "Number", "Image"],
+                index=["Text", "Number", "Image"].index(current_type),
+                key=f"disp_{col_name}"
+            )
+    
+    st.subheader("Column Labels")
+    cols = st.columns(3)
+    for idx, col_name in enumerate(st.session_state.current_df.columns):
+        with cols[idx % 3]:
+            current_label = st.session_state.labels.get(col_name, col_name)
+            st.session_state.labels[col_name] = st.text_input(
+                f"Label for {col_name}",
+                value=current_label,
+                key=f"label_{col_name}"
+            )
+
+def pagination_controls(df):
+    if df is not None:
+        total_pages = math.ceil(len(df) / st.session_state.rows_per_page)
+        
+        col1, col2, col3 = st.columns([2, 4, 2])
+        with col1:
+            st.write(f"Page {st.session_state.current_page} of {total_pages}")
+        with col2:
+            st.write(f"Showing rows {(st.session_state.current_page-1)*st.session_state.rows_per_page + 1} - "
+                    f"{min(st.session_state.current_page*st.session_state.rows_per_page, len(df))} "
+                    f"of {len(df)} total rows")
+        with col3:
+            prev, _, next = st.columns([2, 4, 2])
+            with prev:
+                if st.button("Previous") and st.session_state.current_page > 1:
+                    st.session_state.current_page -= 1
+                    st.experimental_rerun()
+            with next:
+                if st.button("Next") and st.session_state.current_page < total_pages:
+                    st.session_state.current_page += 1
+                    st.experimental_rerun()
+        return total_pages
+
+def display_data_preview():
+    st.header("Data Preview")
+    
+    if st.session_state.current_df is None:
+        st.warning("Upload data first!")
+        return
+    
+    df = st.session_state.current_df
+    total_pages = pagination_controls(df)
+    
+    # Get current page slice
+    start_idx = (st.session_state.current_page - 1) * st.session_state.rows_per_page
+    end_idx = start_idx + st.session_state.rows_per_page
+    page_df = df.iloc[start_idx:end_idx]
+
+    # Display columns with proper formatting
+    for _, row in page_df.iterrows():
+        cols = st.columns(len(df.columns))
+        for idx, col_name in enumerate(df.columns):
+            with cols[idx]:
+                label = st.session_state.labels.get(col_name, col_name)
+                value = row[col_name]
+                display_type = st.session_state.display_types.get(col_name, "Text")
+                
+                st.markdown(f"**{label}**")
+                if display_type == "Image":
+                    try:
+                        st.image(Image.open(value) if isinstance(value, str) else value, 
+                                use_column_width=True)
+                    except Exception as e:
+                        print(e)
+                        st.write(value)
+                else:
+                    st.write(value)
+        st.divider()
+
+def main():
+    st.set_page_config(layout="wide")
+    init_session_state()
+    sidebar_controls()
+    
+    if st.session_state.page == 'Data Upload & Configuration':
+        st.title("Data Configuration")
+        handle_file_upload()
+        if st.session_state.current_df is not None:
+            sql_configuration()
+            display_settings()
+    else:
+        st.title("Data Preview")
+        display_data_preview()
+
+if __name__ == "__main__":
+    main()
