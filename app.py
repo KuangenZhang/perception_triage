@@ -3,6 +3,7 @@ import pandas as pd
 import duckdb
 from PIL import Image
 import math
+import os
 
 def init_session_state():
     session_defaults = {

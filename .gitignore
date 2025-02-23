@@ -170,6 +170,6 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-data/
-media/
+artifacts/
+wandb/
 .DS_Store
