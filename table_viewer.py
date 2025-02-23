@@ -164,7 +164,7 @@ def display_column_headers(df):
             
             # Add sorting indicator
             if st.session_state.sort_column == col_name:
-                indicator = "▼" if st.session_state.sort_ascending else "▲"
+                indicator = "▲" if st.session_state.sort_ascending else "▼"
                 label += f" {indicator}"
             
             # Create clickable header
