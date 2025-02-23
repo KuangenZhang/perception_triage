@@ -216,8 +216,11 @@ def display_data_preview():
                 st.markdown(f"**{label}**")
                 if display_type == "Image":
                     try:
-                        st.image(Image.open(value) if isinstance(value, str) else value, 
-                                use_container_width=True)
+                        img_paths = value.split(",")
+                        with st.container():
+                            for img_path in img_paths:
+                                st.image(Image.open(img_path), 
+                                        use_container_width=True)
                     except Exception as e:
                         print(e)
                         st.write(value)
