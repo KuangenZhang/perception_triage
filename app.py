@@ -12,7 +12,9 @@ def init_session_state():
         'labels': {},
         'current_page': 1,
         'rows_per_page': 10,
-        'page': 'Data Upload & Configuration'
+        'page': 'Data Upload & Configuration',
+        'sort_column': None,
+        'sort_ascending': True,
     }
     for key, value in session_defaults.items():
         if key not in st.session_state:
@@ -79,7 +81,7 @@ def apply_sql_query(query):
         result = conn.execute(query).fetchdf()
         st.session_state.current_df = result
         st.session_state.current_page = 1  # Reset pagination
-        st.experimental_rerun()
+        st.rerun()
     except Exception as e:
         st.error(f"SQL Error: {str(e)}")
 
@@ -90,7 +92,7 @@ def add_computed_column(query):
         new_df = conn.execute(query).fetchdf()
         st.session_state.current_df = new_df
         st.session_state.current_page = 1  # Reset pagination
-        st.experimental_rerun()
+        st.rerun()
     except Exception as e:
         st.error(f"Column Error: {str(e)}")
 
@@ -136,12 +138,45 @@ def pagination_controls(df):
             with prev:
                 if st.button("Previous") and st.session_state.current_page > 1:
                     st.session_state.current_page -= 1
-                    st.experimental_rerun()
+                    st.rerun()
             with next:
                 if st.button("Next") and st.session_state.current_page < total_pages:
                     st.session_state.current_page += 1
-                    st.experimental_rerun()
+                    st.rerun()
         return total_pages
+
+
+def sort_dataframe(df, column, ascending):
+    """Sort dataframe while preserving categorical order"""
+    try:
+        return df.sort_values(by=column, ascending=ascending)
+    except Exception as e:
+        st.error(f"Sorting error: {str(e)}")
+        return df
+
+def display_column_headers(df):
+    """Create clickable column headers with sorting indicators"""
+    cols = st.columns(len(df.columns))
+    for idx, col_name in enumerate(df.columns):
+        with cols[idx]:
+            label = st.session_state.labels.get(col_name, col_name)
+            
+            # Add sorting indicator
+            if st.session_state.sort_column == col_name:
+                indicator = "▼" if st.session_state.sort_ascending else "▲"
+                label += f" {indicator}"
+            
+            # Create clickable header
+            if st.button(label, key=f"sort_{col_name}"):
+                if st.session_state.sort_column == col_name:
+                    # Toggle direction if same column clicked
+                    st.session_state.sort_ascending = not st.session_state.sort_ascending
+                else:
+                    # New column, default to ascending
+                    st.session_state.sort_column = col_name
+                    st.session_state.sort_ascending = True
+                st.rerun()
+
 
 def display_data_preview():
     st.header("Data Preview")
@@ -151,6 +186,16 @@ def display_data_preview():
         return
     
     df = st.session_state.current_df
+    
+    # Apply sorting
+    if st.session_state.sort_column:
+        df = sort_dataframe(df, 
+                           st.session_state.sort_column,
+                           st.session_state.sort_ascending)
+    
+    # Display headers with sorting controls
+    display_column_headers(df)
+    
     total_pages = pagination_controls(df)
     
     # Get current page slice
@@ -171,7 +216,7 @@ def display_data_preview():
                 if display_type == "Image":
                     try:
                         st.image(Image.open(value) if isinstance(value, str) else value, 
-                                use_column_width=True)
+                                use_container_width=True)
                     except Exception as e:
                         print(e)
                         st.write(value)
