@@ -178,6 +178,32 @@ def display_column_headers(df):
                     st.session_state.sort_ascending = True
                 st.rerun()
 
+def calc_column_widths(df, img_column_width_sum = 0.5):
+    n_column = len(df.columns)
+    n_img_column = 0
+    for col_name in df.columns:
+        display_type = st.session_state.display_types.get(col_name, "Text")
+        if display_type == "Image":
+            n_img_column += 1
+    n_non_img_column = n_column - n_img_column
+    
+    if n_img_column > 0:
+        img_column_width = img_column_width_sum / n_img_column
+    else:
+        img_column_width = 0
+    if n_non_img_column > 0:
+        non_img_column_width = (1-img_column_width_sum) / n_non_img_column
+    else:
+        non_img_column_width = 0
+    
+    column_widths = []
+    for col_name in df.columns:
+        display_type = st.session_state.display_types.get(col_name, "Text")
+        if display_type == "Image":
+            column_widths.append(img_column_width)
+        else:
+            column_widths.append(non_img_column_width)
+    return column_widths
 
 def display_data_preview():
     st.header("Data Preview")
@@ -203,10 +229,11 @@ def display_data_preview():
     start_idx = (st.session_state.current_page - 1) * st.session_state.rows_per_page
     end_idx = start_idx + st.session_state.rows_per_page
     page_df = df.iloc[start_idx:end_idx]
-
+    
+    column_widths = calc_column_widths(df)
     # Display columns with proper formatting
     for _, row in page_df.iterrows():
-        cols = st.columns(len(df.columns))
+        cols = st.columns(column_widths)
         for idx, col_name in enumerate(df.columns):
             with cols[idx]:
                 label = st.session_state.labels.get(col_name, col_name)
