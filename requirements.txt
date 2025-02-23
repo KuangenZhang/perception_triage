@@ -4,3 +4,4 @@ duckdb
 Pillow
 streamlit-aggrid
 wandb
+tqdm
