@@ -161,9 +161,9 @@ def sort_dataframe(df, column, ascending):
         st.error(f"Sorting error: {str(e)}")
         return df
 
-def display_column_headers(df):
+def display_column_headers(df, column_widths):
     """Create clickable column headers with sorting indicators"""
-    cols = st.columns(len(df.columns))
+    cols = st.columns(column_widths)
     for idx, col_name in enumerate(df.columns):
         with cols[idx]:
             label = st.session_state.labels.get(col_name, col_name)
@@ -226,8 +226,10 @@ def display_data_preview():
                            st.session_state.sort_column,
                            st.session_state.sort_ascending)
     
+    column_widths = calc_column_widths(df)
+    
     # Display headers with sorting controls
-    display_column_headers(df)
+    display_column_headers(df, column_widths)
     
     total_pages = pagination_controls(df)
     
@@ -236,7 +238,7 @@ def display_data_preview():
     end_idx = start_idx + st.session_state.rows_per_page
     page_df = df.iloc[start_idx:end_idx]
     
-    column_widths = calc_column_widths(df)
+    
     # Display columns with proper formatting
     for _, row in page_df.iterrows():
         cols = st.columns(column_widths)
