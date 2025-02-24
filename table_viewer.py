@@ -24,11 +24,16 @@ def init_session_state():
 def sidebar_controls():
     with st.sidebar:
         st.header("Navigation")
-        st.session_state.page = st.selectbox(
+        selected_page = st.selectbox(
             "Select Page",
             ['Data Upload & Configuration', 'Data Preview'],
             index=0 if st.session_state.page == 'Data Upload & Configuration' else 1
         )
+        
+        # Check if the selected page has changed
+        if selected_page != st.session_state.page:
+            st.session_state.page = selected_page
+            st.rerun()
         
         if st.session_state.page == 'Data Preview' and st.session_state.current_df is not None:
             st.header("Pagination Settings")
