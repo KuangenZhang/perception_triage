@@ -141,10 +141,23 @@ def pagination_controls(df):
                     f"{min(st.session_state.current_page*st.session_state.rows_per_page, len(df))} "
                     f"of {len(df)} total rows")
         with col3:
-            prev, _, next = st.columns([2, 4, 2])
+            prev, page_input, next = st.columns([2, 4, 2])
             with prev:
                 if st.button("Previous") and st.session_state.current_page > 1:
                     st.session_state.current_page -= 1
+                    st.rerun()
+            with page_input:
+                # Add a numeric input for direct page navigation
+                new_page = st.number_input(
+                    "Go to page",
+                    min_value=1,
+                    max_value=total_pages,
+                    value=st.session_state.current_page,
+                    step=1,
+                    key="page_input"
+                )
+                if new_page != st.session_state.current_page:
+                    st.session_state.current_page = new_page
                     st.rerun()
             with next:
                 if st.button("Next") and st.session_state.current_page < total_pages:
@@ -226,12 +239,11 @@ def display_data_preview():
                            st.session_state.sort_column,
                            st.session_state.sort_ascending)
     
-    column_widths = calc_column_widths(df)
+    total_pages = pagination_controls(df)
     
+    column_widths = calc_column_widths(df)
     # Display headers with sorting controls
     display_column_headers(df, column_widths)
-    
-    total_pages = pagination_controls(df)
     
     # Get current page slice
     start_idx = (st.session_state.current_page - 1) * st.session_state.rows_per_page
