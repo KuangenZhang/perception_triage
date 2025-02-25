@@ -137,37 +137,30 @@ def display_settings():
 def pagination_controls(df):
     if df is not None:
         total_pages = math.ceil(len(df) / st.session_state.rows_per_page)
-        
-        col1, col2, col3 = st.columns([2, 4, 2])
-        with col1:
+        with st.sidebar:
             st.write(f"Page {st.session_state.current_page} of {total_pages}")
-        with col2:
             st.write(f"Showing rows {(st.session_state.current_page-1)*st.session_state.rows_per_page + 1} - "
-                    f"{min(st.session_state.current_page*st.session_state.rows_per_page, len(df))} "
-                    f"of {len(df)} total rows")
-        with col3:
-            prev, page_input, next = st.columns([2, 4, 2])
-            with prev:
-                if st.button("Previous") and st.session_state.current_page > 1:
-                    st.session_state.current_page -= 1
-                    st.rerun()
-            with page_input:
-                # Add a numeric input for direct page navigation
-                new_page = st.number_input(
-                    "Go to page",
-                    min_value=1,
-                    max_value=total_pages,
-                    value=st.session_state.current_page,
-                    step=1,
-                    key="page_input"
-                )
-                if new_page != st.session_state.current_page:
-                    st.session_state.current_page = new_page
-                    st.rerun()
-            with next:
-                if st.button("Next") and st.session_state.current_page < total_pages:
-                    st.session_state.current_page += 1
-                    st.rerun()
+                        f"{min(st.session_state.current_page*st.session_state.rows_per_page, len(df))} "
+                        f"of {len(df)} total rows")
+            
+            if st.button("Previous") and st.session_state.current_page > 1:
+                st.session_state.current_page -= 1
+                st.rerun()
+            # Add a numeric input for direct page navigation
+            new_page = st.number_input(
+                "Go to page",
+                min_value=1,
+                max_value=total_pages,
+                value=st.session_state.current_page,
+                step=1,
+                key="page_input"
+            )
+            if new_page != st.session_state.current_page:
+                st.session_state.current_page = new_page
+                st.rerun()
+            if st.button("Next") and st.session_state.current_page < total_pages:
+                st.session_state.current_page += 1
+                st.rerun()
         return total_pages
 
 
