@@ -5,3 +5,4 @@ Pillow
 streamlit-aggrid
 wandb
 tqdm
+pre-commit
