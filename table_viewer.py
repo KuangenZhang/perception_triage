@@ -4,6 +4,13 @@ import duckdb
 from PIL import Image
 import math
 import os
+import base64
+
+def render_img_html(image_path: str):
+    with open(image_path, "rb") as f:
+        image_b64 = base64.b64encode(f.read()).decode()
+        st.markdown(f"<img style='max-width:100%max-height:100%;' src = 'data:image/png;base64, {image_b64}'/>", 
+                    unsafe_allow_html=True)
 
 def init_session_state():
     session_defaults = {
@@ -16,6 +23,9 @@ def init_session_state():
         'page': 'Data Upload & Configuration',
         'sort_column': None,
         'sort_ascending': True,
+        'sql_query': None,
+        'new_col_sql': None,
+        'uploaded_file': None,
     }
     for key, value in session_defaults.items():
         if key not in st.session_state:
@@ -50,14 +60,20 @@ def sidebar_controls():
 def handle_file_upload():
     st.header("1. Data Upload")
     uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
-    if uploaded_file:
+    if uploaded_file and uploaded_file != st.session_state.uploaded_file:
         st.session_state.df = pd.read_csv(uploaded_file)
         st.session_state.current_df = st.session_state.df.copy()
         st.session_state.display_types = {}
         st.session_state.labels = {}
         st.session_state.current_page = 1  # Reset pagination on new upload
+        st.session_state.uploaded_file = uploaded_file
 
-def sql_configuration():
+def sql_configuration(sql_query: str = None, new_col_sql: str = None):
+    if sql_query is None:
+        sql_query = "SELECT * FROM current_df"
+    if new_col_sql is None:
+        new_col_sql = "SELECT *, salary*2 AS bonus FROM current_df"
+    
     st.header("2. SQL Configuration")
     
     col1, col2 = st.columns(2)
@@ -65,7 +81,7 @@ def sql_configuration():
         st.subheader("Column Selection")
         sql_query = st.text_area(
             "Input SQL Query",
-            value="SELECT * FROM current_df",
+            value=sql_query,
             height=100
         )
         if st.button("Apply SQL"):
@@ -75,10 +91,11 @@ def sql_configuration():
         st.subheader("Add Computed Column")
         new_col_sql = st.text_input(
             "SQL for new column",
-            placeholder="SELECT *, salary*2 AS bonus FROM current_df"
+            placeholder=new_col_sql
         )
         if st.button("Add Column"):
             add_computed_column(new_col_sql)
+    return sql_query, new_col_sql
 
 def copy_original_to_current():
     """Copy original_df to current_df"""
@@ -93,7 +110,6 @@ def apply_sql_query(query):
         result = conn.execute(query).fetchdf()
         st.session_state.current_df = result
         st.session_state.current_page = 1  # Reset pagination
-        st.rerun()
     except Exception as e:
         st.error(f"SQL Error: {str(e)}")
 
@@ -104,7 +120,6 @@ def add_computed_column(query):
         new_df = conn.execute(query).fetchdf()
         st.session_state.current_df = new_df
         st.session_state.current_page = 1  # Reset pagination
-        st.rerun()
     except Exception as e:
         st.error(f"Column Error: {str(e)}")
 
@@ -237,7 +252,7 @@ def display_data_preview():
                            st.session_state.sort_column,
                            st.session_state.sort_ascending)
     
-    total_pages = pagination_controls(df)
+    pagination_controls(df)
     
     column_widths = calc_column_widths(df)
     # Display headers with sorting controls
@@ -264,7 +279,7 @@ def display_data_preview():
                         img_paths = value.split(",")
                         with st.container():
                             for img_path in img_paths:
-                                st.image(Image.open(img_path), use_container_width=True)
+                                render_img_html(img_path)
                     except Exception as e:
                         print(e)
                         st.write(value)
@@ -281,8 +296,11 @@ def main():
         st.title("Data Configuration")
         handle_file_upload()
         if st.session_state.current_df is not None:
-            sql_configuration()
+            st.session_state.sql_query, st.session_state.new_col_sql = \
+                sql_configuration(st.session_state.sql_query, st.session_state.new_col_sql)
             display_settings()
+            print(st.session_state.sql_query)
+            print(st.session_state.new_col_sql)
     else:
         st.title("Data Preview")
         display_data_preview()
