@@ -35,8 +35,8 @@ class DataManager:
             "page": "Data Upload & Configuration",
             "sort_column": None,
             "sort_ascending": True,
-            "sql_query": None,
-            "new_col_sql": None,
+            "sql_query": "SELECT img_cache, frame_id, label FROM current_df",
+            "new_col_sql": "SELECT *, salary*2 AS bonus FROM current_df",
             "uploaded_file": None,
             "frame_labels": {},
             "model_versions": [],
@@ -160,11 +160,12 @@ class DataManager:
         st.session_state.current_page = 1
 
     @staticmethod
-    def save_current_df(df: pd.DataFrame) -> None:
+    def save_current_df(df: pd.DataFrame, file_name: str) -> None:
         """Save current DataFrame to CSV and copy related images.
 
         Args:
             df: DataFrame to save
+            file_name: The file name of the table.
 
         Processes:
         1. Splits image paths into separate columns
@@ -182,7 +183,7 @@ class DataManager:
                 processed_df[f"img_cache_{i}"], processed_df[f"img_dst_{i}"]
             )
 
-        csv_path = ARTIFACTS_FOLDER / "labeled_table.csv"
+        csv_path = ARTIFACTS_FOLDER / file_name
         processed_df.to_csv(csv_path, index=False)
         st.success(f"CSV saved to {csv_path}. Images copied to {dst_img_folder}")
 

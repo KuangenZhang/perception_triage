@@ -37,8 +37,9 @@ def main() -> None:
         st.title("Data Preview")
         UIComponents.display_data_preview()
 
+        file_name = st.sidebar.text_input("Enter CSV file name:", "labeled_table.csv")
         if st.sidebar.button("Download table"):
-            DataManager.save_current_df(st.session_state.current_df)
+            DataManager.save_current_df(st.session_state.current_df, file_name)
 
 
 if __name__ == "__main__":
