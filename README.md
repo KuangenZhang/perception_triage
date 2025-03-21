@@ -13,5 +13,5 @@ python download_table.py -m laneatt_tusimple_resnet18_20250202_133647 laneatt_tu
 
 ## Label the table
 ```bash
-streamlit run table_labeler.py
+streamlit run main.py
 ```
