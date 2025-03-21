@@ -1,5 +1,10 @@
-# Perception Triage Tool
+# Environment setup
 
+```bash
+conda env create -f conda_env.yaml
+```
+
+# Perception Triage Tool
 ## Download table
 
 ```bash

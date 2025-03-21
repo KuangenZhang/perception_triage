@@ -1,8 +1,0 @@
-streamlit
-pandas
-duckdb
-Pillow
-streamlit-aggrid
-wandb
-tqdm
-pre-commit

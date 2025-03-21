@@ -1,0 +1,14 @@
+name: local_triage
+channels:
+    - defaults
+dependencies:
+    - python=3.13.2
+    - pip
+    - pip:
+        - streamlit==1.42.2
+        - streamlit-aggrid==1.1.0
+        - pandas==2.2.3
+        - pillow==11.1.0
+        - duckdb==1.2.0
+        - wandb==0.19.7
+        - tqdm==4.67.1
