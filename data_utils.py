@@ -32,7 +32,7 @@ def download_files(entity: str, project: str, run_id: str = "6ec5t9eu", path_pre
     return artifact_dir
 
 
-def copy_src_imgs_to_cache(df, img_column_name, cache_img_column_name):
+def copy_src_imgs_to_dst(img_src_paths, img_dst_paths):
     """
     Copy images from the source path (df[img_column_name]) to the cache path (df[cache_img_column_name]).
     
@@ -41,14 +41,16 @@ def copy_src_imgs_to_cache(df, img_column_name, cache_img_column_name):
         img_column_name (str): The column name for source image paths.
         cache_img_column_name (str): The column name for cache image paths.
     """
-    for src_path, cache_path in tqdm(zip(df[img_column_name], df[cache_img_column_name])):
+    for src_path, dst_path in tqdm(zip(img_src_paths, img_dst_paths)):
+        if os.path.exists(dst_path):
+            continue
+        
         # Ensure the source image exists
         if not os.path.exists(src_path):
             print(f"Warning: Source image not found: {src_path}")
             continue
         
         # Create the cache directory if it doesn't exist
-        os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-        
+        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
         # Copy the image from source to cache
-        shutil.copy(src_path, cache_path)
+        shutil.copy(src_path, dst_path)

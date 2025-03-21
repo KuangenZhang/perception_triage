@@ -1,12 +1,12 @@
 """ 
-python download_diff.py -m laneatt_tusimple_resnet18_20250202_133647 laneatt_tusimple_resnet18_20250202_133647 -r 71dd2pnq gkhtc7x4 -d mean_iou
+python download_table.py -m laneatt_tusimple_resnet18_20250202_133647 laneatt_tusimple_resnet18_20250202_133647 -r 71dd2pnq gkhtc7x4 -d mean_iou
 
 SQL:
 SELECT img_cache_combined, mean_iou_diff, frame_id_0 as frame_id,  mean_iou_0 , mean_iou_1
 FROM current_df
 """
 
-from download_data import download_files, wandb_table_to_csv, copy_src_imgs_to_cache
+from data_utils import download_files, wandb_table_to_csv, copy_src_imgs_to_dst
 import os
 import argparse
 import pandas as pd
@@ -63,12 +63,13 @@ def main():
             img_column_name = df.columns[args.img_column_idx]
             assert "frame_id" in df.columns, "Error: 'frame_id' column is missing in the DataFrame."
             df[cache_img_column_name] = df["frame_id"].apply(lambda x: os.path.join(model_artifact_dir, "media", f"{x}.png"))
+            df["model_version"] = model_version
             df.to_csv(csv_path, index=False)
         
             if not os.path.exists(model_artifact_dir):
                 download_files(args.entity, args.project, run_id, path_prefix="media/")
                 # copy imgs from df[img_column_name] to df[cache_img_column_name]
-                copy_src_imgs_to_cache(df, img_column_name, cache_img_column_name)
+                copy_src_imgs_to_dst(df[img_column_name], df[cache_img_column_name])
 
         df_list.append(df)
     

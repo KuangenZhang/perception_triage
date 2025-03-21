@@ -1,0 +1,5 @@
+uuid,label
+laneatt_tusimple_resnet18_20250202_133647_9,Pred:Curve
+laneatt_tusimple_resnet18_20250202_133647_21,Pred:Occ
+laneatt_tusimple_resnet18_20250202_133647_44,Pred:Branch
+laneatt_tusimple_resnet18_20250202_133647_68,Pred:Branch

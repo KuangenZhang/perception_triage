@@ -5,6 +5,12 @@ from PIL import Image
 import math
 import os
 import base64
+from data_utils import copy_src_imgs_to_dst
+
+FRAME_LABELS = ["Pred:Bias", "Pred:FN", "Pred:FP", "Pred:Curve", "Pred:Occ", "Pred:Branch", "Pred:Merge",
+                "GT:Bias", "GT:FN", "GT:FP", "GT:Elev", "GT:Incomp", "Normal"]
+LABEL_FILE_PATH = os.path.join(os.path.dirname(__file__), "data", "labels.csv")
+ARTIFACTS_FOLDER = os.path.join(os.path.dirname(__file__), "artifacts")
 
 def render_img_html(image_path: str):
     with open(image_path, "rb") as f:
@@ -26,6 +32,8 @@ def init_session_state():
         'sql_query': None,
         'new_col_sql': None,
         'uploaded_file': None,
+        "frame_labels": {},
+        "model_versions": [],
     }
     for key, value in session_defaults.items():
         if key not in st.session_state:
@@ -61,16 +69,51 @@ def handle_file_upload():
     st.header("1. Data Upload")
     uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
     if uploaded_file and uploaded_file != st.session_state.uploaded_file:
+        if os.path.exists(LABEL_FILE_PATH):
+            label_df = pd.read_csv(LABEL_FILE_PATH)
+            st.session_state.frame_labels = dict(zip(label_df["uuid"], label_df["label"]))
+        
         st.session_state.df = pd.read_csv(uploaded_file)
+        init_model_versions()
+        init_frame_labels()
+        
         st.session_state.current_df = st.session_state.df.copy()
         st.session_state.display_types = {}
         st.session_state.labels = {}
         st.session_state.current_page = 1  # Reset pagination on new upload
         st.session_state.uploaded_file = uploaded_file
 
+def init_model_versions():
+    assert len(st.session_state.df) > 0, "The current dataframe is empty"
+    if "model_version" in st.session_state.df.columns:
+        # single table
+        st.session_state.model_versions = [st.session_state.df["model_version"][0]]
+    else:
+        # diff table
+        st.session_state.model_versions = [st.session_state.df["model_version_0"][0], st.session_state.df["model_version_1"][0]]
+
+def init_frame_labels():
+    st.session_state.df["label"] = FRAME_LABELS[0]
+    for r_idx, row in st.session_state.df.iterrows():
+        frame_uuid = get_frame_uuid(row)
+        if frame_uuid in st.session_state.frame_labels:
+            st.session_state.df.at[r_idx, "label"] = st.session_state.frame_labels[frame_uuid]
+
+def get_frame_uuid(row):
+    frame_id = get_frame_id(row)
+    frame_uuid = "_".join(st.session_state.model_versions + [frame_id])
+    return frame_uuid
+
+def get_frame_id(row):
+    frame_id_keys = ["frame_id", "frame_id_0"] # single table and diff table.
+    for key in frame_id_keys:
+        if key in row:
+            return str(row[key])
+    raise Exception("No frame id in the table!")
+
 def sql_configuration(sql_query: str = None, new_col_sql: str = None):
     if sql_query is None:
-        sql_query = "SELECT * FROM current_df"
+        sql_query = "SELECT img_cache, frame_id, label FROM current_df"
     if new_col_sql is None:
         new_col_sql = "SELECT *, salary*2 AS bonus FROM current_df"
     
@@ -245,7 +288,6 @@ def display_data_preview():
         return
     
     df = st.session_state.current_df
-    
     # Apply sorting
     if st.session_state.sort_column:
         df = sort_dataframe(df, 
@@ -253,6 +295,7 @@ def display_data_preview():
                            st.session_state.sort_ascending)
     
     pagination_controls(df)
+    save_current_df(df)
     
     column_widths = calc_column_widths(df)
     # Display headers with sorting controls
@@ -265,15 +308,15 @@ def display_data_preview():
     
     
     # Display columns with proper formatting
-    for _, row in page_df.iterrows():
+    for r_idx, row in page_df.iterrows():
         cols = st.columns(column_widths)
         for idx, col_name in enumerate(df.columns):
             with cols[idx]:
                 label = st.session_state.labels.get(col_name, col_name)
                 value = row[col_name]
                 display_type = st.session_state.display_types.get(col_name, "Text")
-                
                 st.markdown(f"**{label}**")
+                
                 if display_type == "Image":
                     try:
                         img_paths = value.split(",")
@@ -283,9 +326,60 @@ def display_data_preview():
                     except Exception as e:
                         print(e)
                         st.write(value)
+                elif col_name == 'label':
+                    new_frame_label = st.selectbox(
+                        "label",
+                        FRAME_LABELS,
+                        index=FRAME_LABELS.index(value),
+                        key=f"label_select_{r_idx}",
+                        label_visibility="collapsed",
+                    )
+                    if new_frame_label != value:
+                        frame_uuid = get_frame_uuid(row)
+                        st.session_state.frame_labels[frame_uuid] = new_frame_label
+                        save_frame_labels()
+                        st.session_state.current_df.at[r_idx, 'label'] = new_frame_label
                 else:
                     st.write(value)
         st.divider()
+
+def save_current_df(df):
+    dst_img_folder = os.path.join(ARTIFACTS_FOLDER, "important_imgs")
+    file_name = st.sidebar.text_input("Enter CSV file name:", "labeled_table.csv")
+    
+    if st.sidebar.button("Download table"):
+        processed_df = df.copy()
+        processed_df = split_img_paths(processed_df)
+        processed_df = add_img_dst_paths(processed_df, dst_img_folder)
+        for i in range(len(st.session_state.model_versions)):
+            copy_src_imgs_to_dst(processed_df[f"img_cache_{i}"], processed_df[f"img_dst_{i}"])
+        
+        # 3. Convert processed DF to CSV
+        csv_path = os.path.join(ARTIFACTS_FOLDER, file_name)
+        processed_df.to_csv(csv_path, index=False)
+        st.success(f"CSV is successfully downloaded to {csv_path}. Images are copied to {dst_img_folder}")
+
+def split_img_paths(processed_df: pd.DataFrame):
+    if "img_cache" in processed_df.columns:
+        processed_df["img_cache_0"] = processed_df["img_cache"]
+    else:
+        for r_idx, row in processed_df.iterrows():
+            img_paths = row["img_cache_combined"].split(",")
+            for i, img_path in enumerate(img_paths):
+                processed_df.at[r_idx, f"img_cache_{i}"] = img_path
+    return processed_df
+    
+def add_img_dst_paths(processed_df: pd.DataFrame, dst_img_folder:str):
+    for i, model_version in enumerate(st.session_state.model_versions):
+        processed_df[f"img_uuid_{i}"] = model_version + "_" + processed_df["frame_id"].astype(str)
+        processed_df[f"img_dst_{i}"] = dst_img_folder + "/" + processed_df[f"img_uuid_{i}"] + ".png"
+    return processed_df
+
+def save_frame_labels():
+    os.makedirs(os.path.dirname(LABEL_FILE_PATH), exist_ok=True)
+    with open(LABEL_FILE_PATH, "w") as label_file:
+        df = pd.DataFrame(list(st.session_state.frame_labels.items()), columns = ["uuid", "label"])
+        df.to_csv(label_file, index=False)
 
 def main():
     st.set_page_config(layout="wide")
@@ -299,8 +393,6 @@ def main():
             st.session_state.sql_query, st.session_state.new_col_sql = \
                 sql_configuration(st.session_state.sql_query, st.session_state.new_col_sql)
             display_settings()
-            print(st.session_state.sql_query)
-            print(st.session_state.new_col_sql)
     else:
         st.title("Data Preview")
         display_data_preview()
