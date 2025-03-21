@@ -17,7 +17,7 @@ def combine_tables(df_list, cache_img_column_name: str, metrics_for_diff: str) -
     df_combined = pd.concat(df_list, axis=1, keys=[0, 1])
     df_combined.columns = [f"{col[1]}_{col[0]}" for col in df_combined.columns]
     # Combine cache image paths from both DataFrames
-    df_combined[f"{cache_img_column_name}_combined"] = (
+    df_combined[f"{cache_img_column_name}"] = (
         df_list[0][cache_img_column_name].astype(str) + "," + df_list[1][cache_img_column_name].astype(str)
     )
 
@@ -25,6 +25,7 @@ def combine_tables(df_list, cache_img_column_name: str, metrics_for_diff: str) -
     df_combined[f"{metrics_for_diff}_diff"] = (
         df_list[1][metrics_for_diff] - df_list[0][metrics_for_diff]
     )
+    df_combined["frame_id"] = df_combined["frame_id_0"]
     return df_combined
 
 def get_args():

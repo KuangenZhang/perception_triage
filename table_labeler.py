@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import duckdb
-from PIL import Image
 import math
 import os
 import base64
@@ -100,16 +99,9 @@ def init_frame_labels():
             st.session_state.df.at[r_idx, "label"] = st.session_state.frame_labels[frame_uuid]
 
 def get_frame_uuid(row):
-    frame_id = get_frame_id(row)
+    frame_id = str(row["frame_id"])
     frame_uuid = "_".join(st.session_state.model_versions + [frame_id])
     return frame_uuid
-
-def get_frame_id(row):
-    frame_id_keys = ["frame_id", "frame_id_0"] # single table and diff table.
-    for key in frame_id_keys:
-        if key in row:
-            return str(row[key])
-    raise Exception("No frame id in the table!")
 
 def sql_configuration(sql_query: str = None, new_col_sql: str = None):
     if sql_query is None:
@@ -360,18 +352,15 @@ def save_current_df(df):
         st.success(f"CSV is successfully downloaded to {csv_path}. Images are copied to {dst_img_folder}")
 
 def split_img_paths(processed_df: pd.DataFrame):
-    if "img_cache" in processed_df.columns:
-        processed_df["img_cache_0"] = processed_df["img_cache"]
-    else:
-        for r_idx, row in processed_df.iterrows():
-            img_paths = row["img_cache_combined"].split(",")
-            for i, img_path in enumerate(img_paths):
-                processed_df.at[r_idx, f"img_cache_{i}"] = img_path
+    for r_idx, row in processed_df.iterrows():
+        img_paths = row["img_cache"].split(",")
+        for i, img_path in enumerate(img_paths):
+            processed_df.at[r_idx, f"img_cache_{i}"] = img_path
     return processed_df
     
 def add_img_dst_paths(processed_df: pd.DataFrame, dst_img_folder:str):
     for i, model_version in enumerate(st.session_state.model_versions):
-        processed_df[f"img_uuid_{i}"] = model_version + "_" + processed_df["frame_id"].astype(str)
+        processed_df[f"img_uuid_{i}"] = model_version + "_" + processed_df[f"frame_id"].astype(str)
         processed_df[f"img_dst_{i}"] = dst_img_folder + "/" + processed_df[f"img_uuid_{i}"] + ".png"
     return processed_df
 
