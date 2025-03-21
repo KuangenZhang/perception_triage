@@ -36,6 +36,13 @@ def combine_tables(
     return df_combined
 
 
+def all_exist(img_paths: list[str]) -> bool:
+    for img_path in img_paths:
+        if not os.path.exists(img_path):
+            return False
+    return True
+
+
 def get_args() -> Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -120,7 +127,7 @@ def main() -> None:
             df["model_version"] = model_version
             df.to_csv(csv_path, index=False)
 
-            if not os.path.exists(model_artifact_dir):
+            if not all_exist(df[cache_img_column_name]):
                 download_files(args.entity, args.project, run_id, path_prefix="media/")
                 # copy imgs from df[img_column_name] to df[cache_img_column_name]
                 copy_src_imgs_to_dst(df[img_column_name], df[cache_img_column_name])
